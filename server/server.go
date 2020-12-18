@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/cloudflare/fgbgp/messages"
-	"github.com/cloudflare/fgbgp/rib"
-	log "github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/bgptools/fgbgp/messages"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -114,8 +114,6 @@ type Neighbor struct {
 	RemoveOnDisconnect bool
 
 	OutQueue chan messages.SerializableInterface
-
-	Rib rib.Rib
 }
 
 type Manager struct {
@@ -610,7 +608,6 @@ func NewNeighbor(addr net.IP, port int, identifier net.IP, asn uint32, addpath b
 		PeerMultiprotocolList: make([]messages.BGPCapability_MP, 0),
 		PeerAddPathList:       make([]messages.AddPath, 0),
 		OutQueue:              make(chan messages.SerializableInterface, 1000),
-		Rib:                   rib.NewLcRib(),
 		Reconnect:             true,
 		RouteRefresh:          routerefresh,
 	}
