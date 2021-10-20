@@ -471,10 +471,10 @@ func DecodeBGP4MP(buf io.Reader, timestamp time.Time, subtype uint16, length uin
 		var localas uint32
 		var ifaceindex uint16
 		var afi uint16
-		binary.Read(buf, binary.BigEndian, peeras)
-		binary.Read(buf, binary.BigEndian, localas)
-		binary.Read(buf, binary.BigEndian, ifaceindex)
-		binary.Read(buf, binary.BigEndian, afi)
+		binary.Read(buf, binary.BigEndian, &peeras)
+		binary.Read(buf, binary.BigEndian, &localas)
+		binary.Read(buf, binary.BigEndian, &ifaceindex)
+		binary.Read(buf, binary.BigEndian, &afi)
 		var peerip []byte
 		var localip []byte
 		sizeip := 4
@@ -516,10 +516,10 @@ func DecodeBGP4MP(buf io.Reader, timestamp time.Time, subtype uint16, length uin
 		var localas uint32
 		var ifaceindex uint16
 		var afi uint16
-		binary.Read(buf, binary.BigEndian, peeras)
-		binary.Read(buf, binary.BigEndian, localas)
-		binary.Read(buf, binary.BigEndian, ifaceindex)
-		binary.Read(buf, binary.BigEndian, afi)
+		binary.Read(buf, binary.BigEndian, &peeras)
+		binary.Read(buf, binary.BigEndian, &localas)
+		binary.Read(buf, binary.BigEndian, &ifaceindex)
+		binary.Read(buf, binary.BigEndian, &afi)
 		var peerip []byte
 		var localip []byte
 		sizeip := 4
@@ -532,8 +532,8 @@ func DecodeBGP4MP(buf io.Reader, timestamp time.Time, subtype uint16, length uin
 		binary.Read(buf, binary.BigEndian, localip)
 		var oldstate uint16
 		var newstate uint16
-		binary.Read(buf, binary.BigEndian, oldstate)
-		binary.Read(buf, binary.BigEndian, newstate)
+		binary.Read(buf, binary.BigEndian, &oldstate)
+		binary.Read(buf, binary.BigEndian, &newstate)
 
 		mrt := &MrtBGP4MP_StateChange_AS4{
 			Timestamp:  timestamp,
@@ -802,7 +802,9 @@ func DecodeSingle(buf io.Reader) (Mrt, error) {
 	var err error
 	switch mrttype {
 	case TYPE_BGP4MP:
-		mrt, err = DecodeBGP4MP(tmpbuf, timestampP, mrtsubtype, mrtlength)
+		if mrtsubtype == SUBT_BGP4MP_MESSAGE_AS4 || mrtsubtype == SUBT_BGP4MP_STATE_CHANGE_AS4 {
+			mrt, err = DecodeBGP4MP(tmpbuf, timestampP, mrtsubtype, mrtlength)
+		}
 	case TYPE_TABLE_DUMPV2:
 		mrt, err = DecodeBGP4TD2(tmpbuf, timestampP, mrtsubtype, mrtlength)
 	default:
