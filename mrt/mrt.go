@@ -29,12 +29,14 @@ const (
 	SUBT_TABLE_DUMP_AFI_IPV4 = 1
 	SUBT_TABLE_DUMP_AFI_IPV6 = 2
 
-	SUBT_TABLE_DUMPV2_PEER_INDEX_TABLE   = 1
-	SUBT_TABLE_DUMPV2_RIB_IPV4_UNICAST   = 2
-	SUBT_TABLE_DUMPV2_RIB_IPV4_MULTICAST = 3
-	SUBT_TABLE_DUMPV2_RIB_IPV6_UNICAST   = 4
-	SUBT_TABLE_DUMPV2_RIB_IPV6_MULTICAST = 5
-	SUBT_TABLE_DUMPV2_RIB_GENERIC        = 6
+	SUBT_TABLE_DUMPV2_PEER_INDEX_TABLE         = 1
+	SUBT_TABLE_DUMPV2_RIB_IPV4_UNICAST         = 2
+	SUBT_TABLE_DUMPV2_RIB_IPV4_MULTICAST       = 3
+	SUBT_TABLE_DUMPV2_RIB_IPV6_UNICAST         = 4
+	SUBT_TABLE_DUMPV2_RIB_IPV6_MULTICAST       = 5
+	SUBT_TABLE_DUMPV2_RIB_GENERIC              = 6
+	SUBT_TABLE_DUMPV2_RIB_IPV4_UNICAST_ADDPATH = 8
+	SUBT_TABLE_DUMPV2_RIB_IPV6_UNICAST_ADDPATH = 10
 
 	SUBT_BGP4MP_STATE_CHANGE      = 0
 	SUBT_BGP4MP_MESSAGE           = 1
@@ -604,7 +606,26 @@ func DecodeRibEntries(buf io.Reader) (*RibEntry, error) {
 	return re, err
 }
 
-func DecodeBGP4TD2RIBSpec(buf io.Reader, subtype uint16, timestamp time.Time) (Mrt, error) {
+func DecodeRibEntriesAddPath(buf io.Reader) (*RibEntry, error) {
+	var peerindex uint16
+	var origints uint32
+	var pathid uint32
+	var attrlen uint16
+	binary.Read(buf, binary.BigEndian, &peerindex)
+	binary.Read(buf, binary.BigEndian, &origints)
+	binary.Read(buf, binary.BigEndian, &pathid)
+	binary.Read(buf, binary.BigEndian, &attrlen)
+	attrs, err := DecodeAttributes(buf, attrlen)
+	origintsP := time.Unix(int64(origints), 0)
+	re := &RibEntry{
+		OrigTime:   origintsP,
+		PeerIndex:  peerindex,
+		Attributes: attrs,
+	}
+	return re, err
+}
+
+func DecodeBGP4TD2RIBSpec(buf io.Reader, subtype uint16, timestamp time.Time, addpath bool) (Mrt, error) {
 	var afi uint16
 	var safi byte
 	if subtype == SUBT_TABLE_DUMPV2_RIB_IPV4_UNICAST {
@@ -619,6 +640,12 @@ func DecodeBGP4TD2RIBSpec(buf io.Reader, subtype uint16, timestamp time.Time) (M
 	} else if subtype == SUBT_TABLE_DUMPV2_RIB_IPV6_MULTICAST {
 		afi = messages.AFI_IPV6
 		safi = messages.SAFI_MULTICAST
+	} else if subtype == SUBT_TABLE_DUMPV2_RIB_IPV4_UNICAST_ADDPATH {
+		afi = messages.AFI_IPV4
+		safi = messages.SAFI_UNICAST
+	} else if subtype == SUBT_TABLE_DUMPV2_RIB_IPV6_UNICAST_ADDPATH {
+		afi = messages.AFI_IPV6
+		safi = messages.SAFI_UNICAST
 	} else {
 		return nil, errors.New("Cannot decode as Rib Afi/Safi specific")
 	}
@@ -663,8 +690,14 @@ func DecodeBGP4TD2RIBSpec(buf io.Reader, subtype uint16, timestamp time.Time) (M
 	var errentry error
 	for i := 0; i < int(entrycount); i++ {
 		var entry *RibEntry
-		entry, errentry = DecodeRibEntries(buf)
-		entries[i] = entry
+		if addpath {
+			entry, errentry = DecodeRibEntriesAddPath(buf)
+			entries[i] = entry
+		} else {
+			entry, errentry = DecodeRibEntries(buf)
+			entries[i] = entry
+		}
+
 	}
 	mrt.RibEntries = entries
 	return mrt, errentry
@@ -768,13 +801,17 @@ func DecodeBGP4TD2(buf io.Reader, timestamp time.Time, subtype uint16, length ui
 		mrt.RibEntries = entries
 		return mrt, errentry
 	case SUBT_TABLE_DUMPV2_RIB_IPV4_UNICAST:
-		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp)
+		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp, false)
 	case SUBT_TABLE_DUMPV2_RIB_IPV6_UNICAST:
-		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp)
+		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp, false)
 	case SUBT_TABLE_DUMPV2_RIB_IPV4_MULTICAST:
-		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp)
+		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp, false)
 	case SUBT_TABLE_DUMPV2_RIB_IPV6_MULTICAST:
-		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp)
+		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp, false)
+	case SUBT_TABLE_DUMPV2_RIB_IPV4_UNICAST_ADDPATH:
+		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp, true)
+	case SUBT_TABLE_DUMPV2_RIB_IPV6_UNICAST_ADDPATH:
+		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp, true)
 	default:
 		return nil, errors.New(fmt.Sprintf("Decoding of subtype %v of BGP4TableDumpV2 not implemented", subtype))
 	}
