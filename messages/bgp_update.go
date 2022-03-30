@@ -668,6 +668,9 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			a.Enc2Bytes = enc2bytes
 			intf = a
 		case ATTRIBUTE_NEXTHOP:
+			if len(data) < 4 {
+				return nil, errors.New(fmt.Sprintf("ParsePathAttribute: ATTRIBUTE_NEXTHOP corrupted, wrong size (%d expected 4)", len(data)))
+			}
 			intf = BGPAttribute_NEXTHOP{NextHop: data[0:4]}
 		case ATTRIBUTE_COMMUNITIES:
 			a := BGPAttribute_COMMUNITIES{Communities: make([]uint32, length/4)}

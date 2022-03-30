@@ -5,9 +5,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type BGPCapability_MP struct {
@@ -193,6 +194,9 @@ func (m BGPCapability) Write(bw io.Writer) {
 }
 
 func (m BGPParameter) Len() int {
+	if m.Data == nil {
+		return 2
+	}
 	return 1 + 1 + m.Data.Len()
 }
 
@@ -318,7 +322,7 @@ func ParseOpen(b []byte) (*BGPMessageOpen, error) {
 					capatype := b[i]
 					capalength := int(b[i+1])
 
-					if i+1+capalength > len(b) {
+					if i+2+capalength > len(b) {
 						return nil, errors.New(fmt.Sprintf("ParseOpen: wrong capability length: %v > %v", i+1+capalength, len(b)))
 					}
 					capa := b[i+2 : i+2+capalength]

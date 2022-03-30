@@ -5,10 +5,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -395,8 +396,15 @@ func InAfiSafi(afi uint16, safi byte, list []AfiSafi) bool {
 	return false
 }
 
+var bgpMarker = []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+
 func ParsePacketHeader(b []byte) (byte, uint16, error) {
 	if len(b) >= 19 {
+		// Check if the first bytes have the marker
+		if !bytes.Equal(b[:16], bgpMarker) {
+			return 0, 0, errors.New(fmt.Sprintf("BGP Packet parser: packet marker not present"))
+		}
+
 		length := uint16(b[16])<<8 | uint16(b[17])
 		if length < 19 || length > 4096 {
 			return 0, 0, errors.New(fmt.Sprintf("BGP Packet parser: wrong length: 19: !<= %v !<= 4096", length))
