@@ -178,6 +178,8 @@ func (m BGPCapability_ADDPATH) Len() int {
 }
 
 func (m BGPCapability_ADDPATH) Write(bw io.Writer) {
+	binary.Write(bw, binary.BigEndian, byte(CAPA_ADDPATH))
+	binary.Write(bw, binary.BigEndian, byte(len(m.AddPathList)*4))
 	for c := range m.AddPathList {
 		m.AddPathList[c].Write(bw)
 	}

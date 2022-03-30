@@ -1,10 +1,37 @@
 package messages
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"testing"
 )
+
+func TestAddPathWrite(t *testing.T) {
+	a := BGPCapability_ADDPATH{
+		AddPathList: []AddPath{
+			{
+				Afi:  1,
+				Safi: 1,
+				TxRx: 2,
+			},
+			{
+				Afi:  2,
+				Safi: 1,
+				TxRx: 2,
+			},
+		},
+	}
+
+	buf := &bytes.Buffer{}
+	a.Write(buf)
+
+	expected := "\x45\x08\x00\x01\x01\x02\x00\x02\x01\x02"
+
+	if !bytes.Equal(buf.Bytes(), []byte(expected)) {
+		t.FailNow()
+	}
+}
 
 func TestDecode(t *testing.T) {
 	blob := []byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
