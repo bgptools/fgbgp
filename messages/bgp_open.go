@@ -174,7 +174,7 @@ func (m BGPCapability_ADDPATH) Len() int {
 	for c := range m.AddPathList {
 		sum += m.AddPathList[c].Len()
 	}
-	return sum
+	return sum + 2
 }
 
 func (m BGPCapability_ADDPATH) Write(bw io.Writer) {
