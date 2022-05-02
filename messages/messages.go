@@ -380,11 +380,13 @@ func (m *BGPMessageNotification) String() string {
 }
 
 func (m BGPMessageNotification) Len() int {
-	return 0
+	return GetBGPHeaderLen() + 2 + len(m.Data)
 }
 
 func (m BGPMessageNotification) Write(bw io.Writer) {
-
+	WriteBGPHeader(MESSAGE_NOTIFICATION, uint16(2+len(m.Data)), bw)
+	bw.Write([]byte{m.ErrorCode, m.ErrorSubcode})
+	bw.Write(m.Data)
 }
 
 func InAfiSafi(afi uint16, safi byte, list []AfiSafi) bool {
