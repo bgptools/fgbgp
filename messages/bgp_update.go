@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -28,6 +29,16 @@ type BGPAttribute_LOCPREF struct {
 
 type BGPAttribute_COMMUNITIES struct {
 	Communities []uint32
+}
+
+type BGPAttribute_LARGECOMMUNITIES struct {
+	Communities []LargeCommunity
+}
+
+type LargeCommunity struct {
+	GlobalAdmin uint32
+	LocalData1  uint32
+	LocalData2  uint32
 }
 
 type ASPath_Segment struct {
@@ -119,6 +130,15 @@ func (m BGPAttribute_COMMUNITIES) String() string {
 	}
 
 	return fmt.Sprintf("Communities: [ %v]", comlist)
+}
+
+func (m BGPAttribute_LARGECOMMUNITIES) String() string {
+	sb := strings.Builder{}
+	for i := range m.Communities {
+		sb.WriteString(fmt.Sprintf("%v:%v:%v, ", m.Communities[i].GlobalAdmin, m.Communities[i].LocalData1, m.Communities[i].LocalData2))
+	}
+
+	return fmt.Sprintf("Large Communities: [ %v]", sb.String())
 }
 
 func (m BGPAttribute_MP_REACH) String() string {
@@ -367,6 +387,22 @@ func (m BGPAttribute_COMMUNITIES) Len() int {
 }
 
 func (m BGPAttribute_COMMUNITIES) Write(bw io.Writer) {
+	WriteAttributeHeader(bw, m.LenContent(), ATTRIBUTE_TRANSITIVEOPT, ATTRIBUTE_COMMUNITIES)
+	for i := range m.Communities {
+		binary.Write(bw, binary.BigEndian, m.Communities[i])
+	}
+}
+
+func (m BGPAttribute_LARGECOMMUNITIES) LenContent() int {
+	return 12 * len(m.Communities)
+}
+
+func (m BGPAttribute_LARGECOMMUNITIES) Len() int {
+	size := m.LenContent()
+	return AttributeHeaderLen(size) + size
+}
+
+func (m BGPAttribute_LARGECOMMUNITIES) Write(bw io.Writer) {
 	WriteAttributeHeader(bw, m.LenContent(), ATTRIBUTE_TRANSITIVEOPT, ATTRIBUTE_COMMUNITIES)
 	for i := range m.Communities {
 		binary.Write(bw, binary.BigEndian, m.Communities[i])
@@ -675,6 +711,12 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 		case ATTRIBUTE_COMMUNITIES:
 			a := BGPAttribute_COMMUNITIES{Communities: make([]uint32, length/4)}
 			for j := 0; j < length/4; j++ {
+				binary.Read(buf, binary.BigEndian, &(a.Communities[j]))
+			}
+			intf = a
+		case ATTRIBUTE_LARGECOMMUNITIES:
+			a := BGPAttribute_LARGECOMMUNITIES{Communities: make([]LargeCommunity, length/12)}
+			for j := 0; j < length/12; j++ {
 				binary.Read(buf, binary.BigEndian, &(a.Communities[j]))
 			}
 			intf = a
