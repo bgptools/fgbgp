@@ -1,6 +1,6 @@
 module github.com/bgptools/fgbgp
 
-go 1.15
+go 1.16
 
 require (
 	github.com/dvyukov/go-fuzz v0.0.0-20220220162807-a217d9bdbece // indirect
