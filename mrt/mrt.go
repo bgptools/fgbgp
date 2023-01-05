@@ -923,8 +923,14 @@ func DecodeBGP4TD1(buf io.Reader, timestamp time.Time, subtype uint16, length ui
 	binary.Read(buf, binary.BigEndian, &prefixLen)
 	switch subtype {
 	case SUBT_TABLE_DUMP_AFI_IPV4:
+		if prefixLen == 32 || prefixLen > 32 {
+			prefixLen = 31
+		}
 		mask = stupidv4MaskHack[prefixLen]
 	case SUBT_TABLE_DUMP_AFI_IPV6:
+		if prefixLen == 128 || prefixLen > 128 {
+			prefixLen = 127
+		}
 		mask = stupidv6MaskHack[prefixLen]
 	}
 	pfx := net.IPNet{
