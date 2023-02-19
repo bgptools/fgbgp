@@ -403,7 +403,7 @@ func (m BGPAttribute_LARGECOMMUNITIES) Len() int {
 }
 
 func (m BGPAttribute_LARGECOMMUNITIES) Write(bw io.Writer) {
-	WriteAttributeHeader(bw, m.LenContent(), ATTRIBUTE_TRANSITIVEOPT, ATTRIBUTE_COMMUNITIES)
+	WriteAttributeHeader(bw, m.LenContent(), ATTRIBUTE_TRANSITIVEOPT, ATTRIBUTE_LARGECOMMUNITIES)
 	for i := range m.Communities {
 		binary.Write(bw, binary.BigEndian, m.Communities[i])
 	}
