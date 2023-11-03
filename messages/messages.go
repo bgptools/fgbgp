@@ -238,9 +238,7 @@ func (n NLRI_IPPrefix) Write(w io.Writer, addpath bool) {
 	binary.Write(w, binary.BigEndian, byte(ones))
 	length := n.GetSplitLen()
 
-	for i := 0; i < length; i++ {
-		binary.Write(w, binary.BigEndian, n.Prefix.IP[i])
-	}
+	w.Write(n.Prefix.IP[:length])
 }
 
 func (n NLRI_IPPrefix) Bytes(addpath bool) []byte {

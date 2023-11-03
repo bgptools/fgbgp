@@ -339,7 +339,7 @@ func (mrt *MrtTableDumpV2_Rib) Write(buf io.Writer) {
 	}
 
 	binary.Write(buf, binary.BigEndian, mrt.SequenceNumber)
-	binary.Write(buf, binary.BigEndian, mrt.NLRI.Bytes(false))
+	mrt.NLRI.Write(buf, false)
 	binary.Write(buf, binary.BigEndian, uint16(len(mrt.RibEntries)))
 	for i := range mrt.RibEntries {
 		mrt.RibEntries[i].Write(buf)
