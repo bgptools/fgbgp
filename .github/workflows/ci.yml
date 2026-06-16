@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+      - run: go test ./... -count=1 -run 'Test'
+
+  fuzz:
+    strategy:
+      matrix:
+        fuzz:
+          - { pkg: ./messages, func: FuzzParsePacket }
+          - { pkg: ./messages, func: FuzzParseOpen }
+          - { pkg: ./messages, func: FuzzParseUpdate }
+          - { pkg: ./messages, func: FuzzParseRoundTrip }
+          - { pkg: ./mrt, func: FuzzDecodeSingle }
+          - { pkg: ./mrt, func: FuzzDecodeBGP4MP }
+          - { pkg: ./mrt, func: FuzzDecodeTableDumpV2 }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+      - run: go test ${{ matrix.fuzz.pkg }} -fuzz=${{ matrix.fuzz.func }} -fuzztime=30s
