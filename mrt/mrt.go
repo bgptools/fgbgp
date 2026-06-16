@@ -469,6 +469,9 @@ func (mrt *MrtBGP4MP_Msg_AS4) Write(buf io.Writer) {
 }
 
 func DecodeBGP4MP(buf io.Reader, timestamp time.Time, subtype uint16, length uint32) (Mrt, error) {
+	if length > MaxMrtLength {
+		return nil, errors.New(fmt.Sprintf("BGP4MP record length %d exceeds maximum %d", length, MaxMrtLength))
+	}
 	switch subtype {
 	case SUBT_BGP4MP_MESSAGE_AS4:
 		var peeras uint32
@@ -490,10 +493,11 @@ func DecodeBGP4MP(buf io.Reader, timestamp time.Time, subtype uint16, length uin
 		binary.Read(buf, binary.BigEndian, peerip)
 		binary.Read(buf, binary.BigEndian, localip)
 
-		msgsize := length - uint32(4+4+2+2+2*(sizeip))
-		if msgsize < 0 {
+		headerLen := uint32(4 + 4 + 2 + 2 + 2*uint32(sizeip))
+		if length < headerLen {
 			return nil, errors.New("DecodeBGP4MP: cannot decode message with negative length")
 		}
+		msgsize := length - headerLen
 		msg := make([]byte, msgsize)
 		// Do progressive read or replace parsepacketheader with io.Reader
 		binary.Read(buf, binary.BigEndian, msg)
@@ -501,6 +505,9 @@ func DecodeBGP4MP(buf io.Reader, timestamp time.Time, subtype uint16, length uin
 		bgptype, bgplen, err1 := messages.ParsePacketHeader(msg)
 		if err1 != nil {
 			return nil, err1
+		}
+		if int(bgplen)+19 > len(msg) {
+			return nil, errors.New("DecodeBGP4MP: BGP message length exceeds payload")
 		}
 		pktd, err2 := messages.ParsePacket(bgptype, msg[19:19+bgplen])
 
@@ -973,6 +980,9 @@ func DecodeBGP4TD1(buf io.Reader, timestamp time.Time, subtype uint16, length ui
 }
 
 func DecodeBGP4TD2(buf io.Reader, timestamp time.Time, subtype uint16, length uint32) (Mrt, error) {
+	if length > MaxMrtLength {
+		return nil, errors.New(fmt.Sprintf("BGP4TD2 record length %d exceeds maximum %d", length, MaxMrtLength))
+	}
 	switch subtype {
 	case SUBT_TABLE_DUMPV2_PEER_INDEX_TABLE:
 		collid := make([]byte, 4)
@@ -1087,6 +1097,8 @@ func DecodeBGP4TD2(buf io.Reader, timestamp time.Time, subtype uint16, length ui
 	return nil, nil
 }
 
+const MaxMrtLength = 1 << 20 // 1MB
+
 func DecodeSingle(buf io.Reader) (Mrt, error) {
 	var timestamp uint32
 	var mrttype uint16
@@ -1097,6 +1109,10 @@ func DecodeSingle(buf io.Reader) (Mrt, error) {
 	binary.Read(buf, binary.BigEndian, &mrttype)
 	binary.Read(buf, binary.BigEndian, &mrtsubtype)
 	binary.Read(buf, binary.BigEndian, &mrtlength)
+
+	if mrtlength > MaxMrtLength {
+		return nil, errors.New(fmt.Sprintf("MRT record length %d exceeds maximum %d", mrtlength, MaxMrtLength))
+	}
 
 	timestampP := time.Unix(int64(timestamp), 0)
 

@@ -62,7 +62,9 @@ type BGPMessageOpen struct {
 
 func (m BGPParameter) String() string {
 	str := "Parameter (%v):"
-	str += m.Data.String()
+	if m.Data != nil {
+		str += m.Data.String()
+	}
 	return fmt.Sprintf(str, m.Type)
 }
 
@@ -204,6 +206,10 @@ func (m BGPParameter) Len() int {
 
 func (m BGPParameter) Write(bw io.Writer) {
 	binary.Write(bw, binary.BigEndian, m.Type)
+	if m.Data == nil {
+		binary.Write(bw, binary.BigEndian, byte(0))
+		return
+	}
 	binary.Write(bw, binary.BigEndian, byte(m.Data.Len()))
 	m.Data.Write(bw)
 }

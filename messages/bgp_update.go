@@ -369,7 +369,7 @@ func WriteAttributeHeader(bw io.Writer, size int, attrflag byte, attrcode byte) 
 	if size > 0xff {
 		extended = ATTRIBUTE_EXTENDED
 	}
-	binary.Write(bw, binary.BigEndian, byte(attrflag|extended))
+	binary.Write(bw, binary.BigEndian, byte((attrflag&^ATTRIBUTE_EXTENDED)|extended))
 	binary.Write(bw, binary.BigEndian, attrcode)
 	if extended != 0 {
 		binary.Write(bw, binary.BigEndian, byte((size&0xff00)>>8))
