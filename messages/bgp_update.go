@@ -528,10 +528,10 @@ func ParseNLRI(b []byte, afi uint16, safi byte, path bool) ([]NLRI, error) {
 	var masks [][]byte
 	asize := 4
 	if afi == AFI_IPV6 {
-		masks = maskV6[:]
+		masks = MaskV6[:]
 		asize = 16
 	} else {
-		masks = maskV4[:]
+		masks = MaskV4[:]
 	}
 
 	i := 0
