@@ -109,6 +109,76 @@ func TestLargeCom(t *testing.T) {
 	}
 }
 
+func TestParseNLRI_InvalidPrefixLength(t *testing.T) {
+	blob := []byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+		"\x00\x37\x02\x00 0000000000000000000000000000000000")
+	bgptype, bodylen, err := ParsePacketHeader(blob)
+	if err != nil {
+		return
+	}
+	if len(blob) < 19 {
+		return
+	}
+	body := blob[19:]
+	if int(bodylen) > len(body) {
+		return
+	}
+	body = body[:bodylen]
+	msg, err := ParsePacket(bgptype, body)
+	if err == nil {
+		var buf bytes.Buffer
+		msg.Write(&buf)
+	}
+}
+
+func TestParseMPReach_ShortData(t *testing.T) {
+	// MP_REACH attribute code 14 (0x0e) with data too short for Afi
+	blob := []byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+		"\x00\x3a\x02\x00\x00\x00\x20\x90\x0e\x00\x01\x01\x40\x01\x01\x00" +
+		"\x40\x02\x0a\x02\x02\x00\x00\x88\x26\x00\x00\xba\xdc\x40\x03\x04" +
+		"\x02\x38\x0b\x01\xc0\x08\x04\x88\x26\x03\xe9\x16\xb9\xa1\x58")
+	bgptype, bodylen, err := ParsePacketHeader(blob)
+	if err != nil {
+		return
+	}
+	if len(blob) < 19 {
+		return
+	}
+	body := blob[19:]
+	if int(bodylen) > len(body) {
+		return
+	}
+	body = body[:bodylen]
+	_, err = ParsePacket(bgptype, body)
+	if err == nil {
+		t.Fatal("expected error for short MP_REACH data")
+	}
+}
+
+func TestParseMPUnreach_ShortData(t *testing.T) {
+	// MP_UNREACH attribute code 15 (0x0f) with data too short for Afi
+	blob := []byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" +
+		"\x00\x3a\x02\x00\x00\x00\x1e\x90\x0f\x00\x01\x01\x40\x01\x01\x00" +
+		"\x40\x02\x0a\x02\x02\x00\x00\x88\x26\x00\x00\xba\xdc\x40\x03\x04" +
+		"\x02\x38\x0b\x01\xc0\x08\x04\x88\x26\x03\xe9")
+	bgptype, bodylen, err := ParsePacketHeader(blob)
+	if err != nil {
+		return
+	}
+	if len(blob) < 19 {
+		return
+	}
+	body := blob[19:]
+	if int(bodylen) > len(body) {
+		return
+	}
+	body = body[:bodylen]
+	_, err = ParsePacket(bgptype, body)
+	if err == nil {
+		t.Fatal("expected error for short MP_UNREACH data")
+	}
+}
+
 func TestBadCapLengthDecode(t *testing.T) {
 	blob := []byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x000\x010" +
 		"00000000a000000\x0200X0" +

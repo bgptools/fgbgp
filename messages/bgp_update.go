@@ -550,6 +550,9 @@ func ParseNLRI(b []byte, afi uint16, safi byte, path bool) ([]NLRI, error) {
 
 		bits := int(b[i])
 		i++
+		if bits > len(masks)-1 {
+			return prefixlist, errors.New(fmt.Sprintf("ParseNLRI: invalid prefix length %v for afi %v", bits, afi))
+		}
 		byteLen := bits / 8
 		if bits%8 != 0 {
 			byteLen++
@@ -708,17 +711,26 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 		case ATTRIBUTE_REACH:
 			a := BGPAttribute_MP_REACH{}
 			pos := 0
+			if len(data) < 4 {
+				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MP_REACH data too short (%d bytes)", len(data)))
+			}
 			a.Afi = uint16(data[pos])<<8 | uint16(data[pos+1])
 			pos += 2
 			a.Safi = data[pos]
 			pos++
-			nhlen := data[pos]
+			nhlen := int(data[pos])
 			pos++
+			if pos+nhlen > len(data) {
+				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MP_REACH next hop length %d exceeds data (%d)", nhlen, len(data)))
+			}
 			nh := make([]byte, nhlen)
-			copy(nh, data[pos:pos+int(nhlen)])
+			copy(nh, data[pos:pos+nhlen])
 			a.NextHop = nh
-			pos += int(nhlen)
+			pos += nhlen
 			pos++
+			if pos > len(data) {
+				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MP_REACH no NLRI data after next hop"))
+			}
 			parseinfo := InAfiSafi(a.Afi, a.Safi, addpathlist)
 			a.NLRI, _ = ParseNLRI(data[pos:], a.Afi, a.Safi, parseinfo)
 			a.EnableAddPath = parseinfo
@@ -726,6 +738,9 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 		case ATTRIBUTE_UNREACH:
 			a := BGPAttribute_MP_UNREACH{}
 			pos := 0
+			if len(data) < 3 {
+				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MP_UNREACH data too short (%d bytes)", len(data)))
+			}
 			a.Afi = uint16(data[pos])<<8 | uint16(data[pos+1])
 			pos += 2
 			a.Safi = data[pos]
