@@ -470,7 +470,7 @@ func (mrt *MrtBGP4MP_Msg_AS4) Write(buf io.Writer) {
 
 func DecodeBGP4MP(buf io.Reader, timestamp time.Time, subtype uint16, length uint32) (Mrt, error) {
 	if length > MaxMrtLength {
-		return nil, errors.New(fmt.Sprintf("BGP4MP record length %d exceeds maximum %d", length, MaxMrtLength))
+		return nil, fmt.Errorf("BGP4MP record length %d exceeds maximum %d", length, MaxMrtLength)
 	}
 	switch subtype {
 	case SUBT_BGP4MP_MESSAGE_AS4:
@@ -559,17 +559,17 @@ func DecodeBGP4MP(buf io.Reader, timestamp time.Time, subtype uint16, length uin
 
 		return mrt, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("Decoding of subtype %v of BGP4MP not implemented", subtype))
+		return nil, fmt.Errorf("Decoding of subtype %v of BGP4MP not implemented", subtype)
 	}
 	return nil, nil
 }
 
 func DecodeNLRI(buf io.Reader, afi uint16, safi byte) (messages.NLRI, error) {
 	if afi != messages.AFI_IPV4 && afi != messages.AFI_IPV6 {
-		return nil, errors.New(fmt.Sprintf("Could not decode NLRI for Afi: %v", afi))
+		return nil, fmt.Errorf("Could not decode NLRI for Afi: %v", afi)
 	}
 	if safi != messages.SAFI_UNICAST && safi != messages.SAFI_MULTICAST {
-		return nil, errors.New(fmt.Sprintf("Could not decode NLRI for Safi: %v", safi))
+		return nil, fmt.Errorf("Could not decode NLRI for Safi: %v", safi)
 	}
 
 	var l byte
@@ -588,7 +588,7 @@ func DecodeNLRI(buf io.Reader, afi uint16, safi byte) (messages.NLRI, error) {
 	if len(nlri) == 1 {
 		return nlri[0], err
 	} else {
-		return nil, errors.New(fmt.Sprintf("Could not decode NLRI %v (%v/%v) (number of results != 1): %v", newb, afi, safi, err))
+		return nil, fmt.Errorf("Could not decode NLRI %v (%v/%v) (number of results != 1): %v", newb, afi, safi, err)
 	}
 }
 
@@ -692,7 +692,7 @@ func DecodeBGP4TD2RIBSpec(buf io.Reader, subtype uint16, timestamp time.Time, ad
 	if len(nlri) == 1 {
 		mrt.NLRI = nlri[0]
 	} else {
-		return mrt, errors.New(fmt.Sprintf("Could not decode NLRI %v (%v/%v) (number of results != 1): %v", newb, afi, safi, err))
+		return mrt, fmt.Errorf("Could not decode NLRI %v (%v/%v) (number of results != 1): %v", newb, afi, safi, err)
 	}
 
 	if err != nil {
@@ -981,7 +981,7 @@ func DecodeBGP4TD1(buf io.Reader, timestamp time.Time, subtype uint16, length ui
 
 func DecodeBGP4TD2(buf io.Reader, timestamp time.Time, subtype uint16, length uint32) (Mrt, error) {
 	if length > MaxMrtLength {
-		return nil, errors.New(fmt.Sprintf("BGP4TD2 record length %d exceeds maximum %d", length, MaxMrtLength))
+		return nil, fmt.Errorf("BGP4TD2 record length %d exceeds maximum %d", length, MaxMrtLength)
 	}
 	switch subtype {
 	case SUBT_TABLE_DUMPV2_PEER_INDEX_TABLE:
@@ -1092,9 +1092,8 @@ func DecodeBGP4TD2(buf io.Reader, timestamp time.Time, subtype uint16, length ui
 	case SUBT_TABLE_DUMPV2_RIB_IPV6_UNICAST_ADDPATH:
 		return DecodeBGP4TD2RIBSpec(buf, subtype, timestamp, true)
 	default:
-		return nil, errors.New(fmt.Sprintf("Decoding of subtype %v of BGP4TableDumpV2 not implemented", subtype))
+		return nil, fmt.Errorf("Decoding of subtype %v of BGP4TableDumpV2 not implemented", subtype)
 	}
-	return nil, nil
 }
 
 const MaxMrtLength = 1 << 20 // 1MB
@@ -1111,7 +1110,7 @@ func DecodeSingle(buf io.Reader) (Mrt, error) {
 	binary.Read(buf, binary.BigEndian, &mrtlength)
 
 	if mrtlength > MaxMrtLength {
-		return nil, errors.New(fmt.Sprintf("MRT record length %d exceeds maximum %d", mrtlength, MaxMrtLength))
+		return nil, fmt.Errorf("MRT record length %d exceeds maximum %d", mrtlength, MaxMrtLength)
 	}
 
 	timestampP := time.Unix(int64(timestamp), 0)
@@ -1132,7 +1131,7 @@ func DecodeSingle(buf io.Reader) (Mrt, error) {
 	case TYPE_TABLE_DUMP:
 		mrt, err = DecodeBGP4TD1(tmpbuf, timestampP, mrtsubtype, mrtlength)
 	default:
-		err = errors.New(fmt.Sprintf("Decoding of type %v not implemented", mrttype))
+		err = fmt.Errorf("Decoding of type %v not implemented", mrttype)
 	}
 
 	return mrt, err

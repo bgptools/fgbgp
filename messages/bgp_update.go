@@ -2,7 +2,6 @@ package messages
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -523,7 +522,7 @@ func (m BGPAttribute) Write(bw io.Writer) {
 
 func ParseNLRI(b []byte, afi uint16, safi byte, path bool) ([]NLRI, error) {
 	if afi != AFI_IPV4 && afi != AFI_IPV6 {
-		return nil, errors.New(fmt.Sprintf("ParseNLRI: cannot decode this Afi/Safi %v/%v", afi, safi))
+		return nil, fmt.Errorf("ParseNLRI: cannot decode this Afi/Safi %v/%v", afi, safi)
 	}
 
 	var masks [][]byte
@@ -542,7 +541,7 @@ func ParseNLRI(b []byte, afi uint16, safi byte, path bool) ([]NLRI, error) {
 		var pathid uint32
 		if path {
 			if len(b)-i < 5 {
-				return nil, errors.New(fmt.Sprintf("ParseNLRI: wrong NLRI size with add-path: %v < 5", len(b)))
+				return nil, fmt.Errorf("ParseNLRI: wrong NLRI size with add-path: %v < 5", len(b))
 			}
 			pathid = uint32(b[i])<<24 | uint32(b[i+1])<<16 | uint32(b[i+2])<<8 | uint32(b[i+3])
 			i += 4
@@ -551,14 +550,14 @@ func ParseNLRI(b []byte, afi uint16, safi byte, path bool) ([]NLRI, error) {
 		bits := int(b[i])
 		i++
 		if bits > len(masks)-1 {
-			return prefixlist, errors.New(fmt.Sprintf("ParseNLRI: invalid prefix length %v for afi %v", bits, afi))
+			return prefixlist, fmt.Errorf("ParseNLRI: invalid prefix length %v for afi %v", bits, afi)
 		}
 		byteLen := bits / 8
 		if bits%8 != 0 {
 			byteLen++
 		}
 		if i+byteLen > len(b) {
-			return prefixlist, errors.New(fmt.Sprintf("ParseNLRI: wrong NLRI size: %v > %v", i+byteLen, len(b)))
+			return prefixlist, fmt.Errorf("ParseNLRI: wrong NLRI size: %v > %v", i+byteLen, len(b))
 		}
 		prefix := b[i : i+byteLen]
 
@@ -583,7 +582,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 	i := 0
 	for i < len(b) {
 		if len(b)-i < 3 {
-			return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: attribute size (need 3 bytes, got %v)", len(b)-i))
+			return attributes, fmt.Errorf("ParsePathAttribute: attribute size (need 3 bytes, got %v)", len(b)-i)
 		}
 		attrflag := b[i]
 		attrcode := b[i+1]
@@ -591,7 +590,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 		length := int(b[i+2])
 
 		if extended != 0 && i+3 > len(b)-1 {
-			return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: wrong extended size: %v > %v", i+3, len(b)-1))
+			return attributes, fmt.Errorf("ParsePathAttribute: wrong extended size: %v > %v", i+3, len(b)-1)
 		}
 
 		offset := 0
@@ -600,13 +599,13 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			offset = 1
 		}
 		if i+offset+3+length > len(b) || i+offset+3 > len(b) {
-			return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: wrong size: %v > %v or %v > %v (ext: %v / %v)", i+offset+3+length, len(b), i+offset+3, len(b), i, extended))
+			return attributes, fmt.Errorf("ParsePathAttribute: wrong size: %v > %v or %v > %v (ext: %v / %v)", i+offset+3+length, len(b), i+offset+3, len(b), i, extended)
 		}
 
 		data := b[i+offset+3 : i+offset+3+length]
 
 		if i+3+offset+length > len(b) {
-			return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: wrong attribute size: %v > %v", i+3+length, len(b)))
+			return attributes, fmt.Errorf("ParsePathAttribute: wrong attribute size: %v > %v", i+3+length, len(b))
 		}
 
 		var intf SerializableInterface
@@ -617,7 +616,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			if len(data) > 0 {
 				o = data[0]
 			} else {
-				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: empty data for ORIGIN attribute"))
+				return attributes, fmt.Errorf("ParsePathAttribute: empty data for ORIGIN attribute")
 			}
 			a := BGPAttribute_ORIGIN{
 				Origin: o,
@@ -625,7 +624,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			intf = a
 		case ATTRIBUTE_MED:
 			if len(data) < 4 {
-				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MED data too short"))
+				return attributes, fmt.Errorf("ParsePathAttribute: MED data too short")
 			}
 			a := BGPAttribute_MED{
 				Med: uint32(data[0])<<24 | uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3]),
@@ -647,7 +646,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			intf = a
 		case ATTRIBUTE_LOCPREF:
 			if len(data) < 4 {
-				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: LOCPREF data too short"))
+				return attributes, fmt.Errorf("ParsePathAttribute: LOCPREF data too short")
 			}
 			a := BGPAttribute_LOCPREF{
 				LocPref: uint32(data[0])<<24 | uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3]),
@@ -687,7 +686,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			intf = a
 		case ATTRIBUTE_NEXTHOP:
 			if len(data) < 4 {
-				return nil, errors.New(fmt.Sprintf("ParsePathAttribute: ATTRIBUTE_NEXTHOP corrupted, wrong size (%d expected 4)", len(data)))
+				return nil, fmt.Errorf("ParsePathAttribute: ATTRIBUTE_NEXTHOP corrupted, wrong size (%d expected 4)", len(data))
 			}
 			intf = BGPAttribute_NEXTHOP{NextHop: data[0:4]}
 		case ATTRIBUTE_COMMUNITIES:
@@ -712,7 +711,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			a := BGPAttribute_MP_REACH{}
 			pos := 0
 			if len(data) < 4 {
-				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MP_REACH data too short (%d bytes)", len(data)))
+				return attributes, fmt.Errorf("ParsePathAttribute: MP_REACH data too short (%d bytes)", len(data))
 			}
 			a.Afi = uint16(data[pos])<<8 | uint16(data[pos+1])
 			pos += 2
@@ -721,7 +720,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			nhlen := int(data[pos])
 			pos++
 			if pos+nhlen > len(data) {
-				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MP_REACH next hop length %d exceeds data (%d)", nhlen, len(data)))
+				return attributes, fmt.Errorf("ParsePathAttribute: MP_REACH next hop length %d exceeds data (%d)", nhlen, len(data))
 			}
 			nh := make([]byte, nhlen)
 			copy(nh, data[pos:pos+nhlen])
@@ -729,7 +728,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			pos += nhlen
 			pos++
 			if pos > len(data) {
-				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MP_REACH no NLRI data after next hop"))
+				return attributes, fmt.Errorf("ParsePathAttribute: MP_REACH no NLRI data after next hop")
 			}
 			parseinfo := InAfiSafi(a.Afi, a.Safi, addpathlist)
 			a.NLRI, _ = ParseNLRI(data[pos:], a.Afi, a.Safi, parseinfo)
@@ -739,7 +738,7 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			a := BGPAttribute_MP_UNREACH{}
 			pos := 0
 			if len(data) < 3 {
-				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MP_UNREACH data too short (%d bytes)", len(data)))
+				return attributes, fmt.Errorf("ParsePathAttribute: MP_UNREACH data too short (%d bytes)", len(data))
 			}
 			a.Afi = uint16(data[pos])<<8 | uint16(data[pos+1])
 			pos += 2
@@ -771,13 +770,13 @@ func ParseUpdate(b []byte, addpathlist []AfiSafi, enc2bytes bool) (*BGPMessageUp
 	m.EnableAddPath = addpath_ipv4uni
 
 	if len(b) < 4 {
-		return nil, errors.New(fmt.Sprintf("ParseUpdate: wrong withdrawn routes size: %v < 4", len(b)))
+		return nil, fmt.Errorf("ParseUpdate: wrong withdrawn routes size: %v < 4", len(b))
 	}
 
 	wdrouteslen := int(uint16(b[0])<<8 | uint16(b[1]))
 
 	if wdrouteslen+4 > len(b) {
-		return nil, errors.New(fmt.Sprintf("ParseUpdate: wrong withdrawn routes size: %v > %v", wdrouteslen+4, len(b)))
+		return nil, fmt.Errorf("ParseUpdate: wrong withdrawn routes size: %v > %v", wdrouteslen+4, len(b))
 	}
 	offset := 2
 	withdrawnroutes := b[offset : offset+wdrouteslen]
@@ -791,7 +790,7 @@ func ParseUpdate(b []byte, addpathlist []AfiSafi, enc2bytes bool) (*BGPMessageUp
 	offset += 2
 
 	if tplen+offset > len(b) {
-		return nil, errors.New(fmt.Sprintf("ParseUpdate: wrong total path size: %v > %v", tplen+offset, len(b)))
+		return nil, fmt.Errorf("ParseUpdate: wrong total path size: %v > %v", tplen+offset, len(b))
 	}
 	pathattributes := b[offset : offset+tplen]
 	m.PathAttributes, err = ParsePathAttribute(pathattributes, addpathlist, enc2bytes)

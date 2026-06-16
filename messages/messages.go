@@ -3,7 +3,6 @@ package messages
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -571,15 +570,15 @@ func ParsePacketHeader(b []byte) (byte, uint16, error) {
 	if len(b) >= 19 {
 		// Check if the first bytes have the marker
 		if !bytes.Equal(b[:16], bgpMarker) {
-			return 0, 0, errors.New(fmt.Sprintf("BGP Packet parser: packet marker not present"))
+			return 0, 0, fmt.Errorf("BGP Packet parser: packet marker not present")
 		}
 
 		length := uint16(b[16])<<8 | uint16(b[17])
 		if length < 19 || length > 4096 {
-			return 0, 0, errors.New(fmt.Sprintf("BGP Packet parser: wrong length: 19: !<= %v !<= 4096", length))
+			return 0, 0, fmt.Errorf("BGP Packet parser: wrong length: 19: !<= %v !<= 4096", length)
 		}
 		if length < 19 {
-			return 0, 0, errors.New(fmt.Sprintf("BGP Packet parser: wrong length: 19: !<= %v", length))
+			return 0, 0, fmt.Errorf("BGP Packet parser: wrong length: 19: !<= %v", length)
 		}
 
 		length -= 19
@@ -587,7 +586,7 @@ func ParsePacketHeader(b []byte) (byte, uint16, error) {
 		//log.Debugf("ParsePacketHeader: len: %v type: %v", length, bgptype)
 		return bgptype, length, nil
 	} else {
-		return 0, 0, errors.New(fmt.Sprintf("BGP Packet parser: wrong header size: %v < 19", len(b)))
+		return 0, 0, fmt.Errorf("BGP Packet parser: wrong header size: %v < 19", len(b))
 	}
 }
 
@@ -597,7 +596,7 @@ func ParseKeepAlive() (*BGPMessageKeepAlive, error) {
 
 func ParseNotification(b []byte) (*BGPMessageNotification, error) {
 	if len(b) < 2 {
-		return nil, errors.New(fmt.Sprintf("ParseNotification: wrong open size: %v < 2", len(b)))
+		return nil, fmt.Errorf("ParseNotification: wrong open size: %v < 2", len(b))
 	}
 
 	errCode := b[0]
@@ -630,7 +629,7 @@ func ParsePacket(bgptype byte, b []byte) (SerializableInterface, error) {
 	case MESSAGE_KEEPALIVE:
 		return ParseKeepAlive()
 	default:
-		return nil, errors.New(fmt.Sprintf("Unknown packet type: %v", bgptype))
+		return nil, fmt.Errorf("Unknown packet type: %v", bgptype)
 	}
 	return nil, nil
 }

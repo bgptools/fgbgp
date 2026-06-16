@@ -3,7 +3,6 @@ package messages
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -282,7 +281,7 @@ func ParseOpen(b []byte) (*BGPMessageOpen, error) {
 	m := BGPMessageOpen{}
 
 	if len(b) < 10 {
-		return nil, errors.New(fmt.Sprintf("ParseOpen: wrong open size: %v < 10", len(b)))
+		return nil, fmt.Errorf("ParseOpen: wrong open size: %v < 10", len(b))
 	}
 	version := b[0]
 	asn := uint16(b[1])<<8 | uint16(b[2])
@@ -302,7 +301,7 @@ func ParseOpen(b []byte) (*BGPMessageOpen, error) {
 	m.Parameters = make([]BGPParameter, 0)
 
 	if len(b)-10 != optparamlen {
-		return nil, errors.New(fmt.Sprintf("ParseOpen: wrong open size for optional parameters: %v != %v", len(b)-10, optparamlen))
+		return nil, fmt.Errorf("ParseOpen: wrong open size for optional parameters: %v != %v", len(b)-10, optparamlen)
 	}
 
 	if optparamlen > 0 && len(b)-10 >= 2 {
@@ -312,7 +311,7 @@ func ParseOpen(b []byte) (*BGPMessageOpen, error) {
 			parmlength := int(b[i+1])
 
 			if i+1+parmlength > len(b) {
-				return nil, errors.New(fmt.Sprintf("ParseOpen: wrong parameter length: %v > %v", i+1+parmlength, len(b)))
+				return nil, fmt.Errorf("ParseOpen: wrong parameter length: %v > %v", i+1+parmlength, len(b))
 			}
 
 			i += 2
@@ -331,7 +330,7 @@ func ParseOpen(b []byte) (*BGPMessageOpen, error) {
 					capalength := int(b[i+1])
 
 					if i+2+capalength > len(b) {
-						return nil, errors.New(fmt.Sprintf("ParseOpen: wrong capability length: %v > %v", i+1+capalength, len(b)))
+						return nil, fmt.Errorf("ParseOpen: wrong capability length: %v > %v", i+1+capalength, len(b))
 					}
 					capa := b[i+2 : i+2+capalength]
 					//log.Debugf("ParseOpen: Capa %v %v %v", capatype, capalength, capa)
@@ -372,13 +371,13 @@ func CraftOpenMessage(asn uint32, holdtime uint16, identifier []byte, mplist []B
 	ptr := &BGPCapabilities{make([]BGPCapabilityIf, 0)}
 	ptr.BGPCapabilities = append(ptr.BGPCapabilities, &BGPCapability_ASN{asn})
 
-	if mplist != nil && len(mplist) > 0 {
+	if len(mplist) > 0 {
 		for i := range mplist {
 			ptr.BGPCapabilities = append(ptr.BGPCapabilities, &mplist[i])
 		}
 	}
 
-	if addpathlist != nil && len(addpathlist) > 0 {
+	if len(addpathlist) > 0 {
 		addpathcapa := BGPCapability_ADDPATH{AddPathList: addpathlist}
 		ptr.BGPCapabilities = append(ptr.BGPCapabilities, addpathcapa)
 	}
