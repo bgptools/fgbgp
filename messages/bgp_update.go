@@ -1,7 +1,6 @@
 package messages
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -523,23 +522,23 @@ func (m BGPAttribute) Write(bw io.Writer) {
 }*/
 
 func ParseNLRI(b []byte, afi uint16, safi byte, path bool) ([]NLRI, error) {
-	prefixlist := make([]NLRI, 0)
-
 	if afi != AFI_IPV4 && afi != AFI_IPV6 {
-		return prefixlist, errors.New(fmt.Sprintf("ParseNLRI: cannot decode this Afi/Safi %v/%v", afi, safi))
+		return nil, errors.New(fmt.Sprintf("ParseNLRI: cannot decode this Afi/Safi %v/%v", afi, safi))
 	}
 
-	psize := 32
+	var masks [][]byte
 	asize := 4
 	if afi == AFI_IPV6 {
-		psize = 128
+		masks = maskV6[:]
 		asize = 16
+	} else {
+		masks = maskV4[:]
 	}
 
 	i := 0
+	prefixlist := make([]NLRI, 0, len(b)/(1+asize/2))
 
 	for i < len(b) {
-
 		var pathid uint32
 		if path {
 			if len(b)-i < 5 {
@@ -549,39 +548,29 @@ func ParseNLRI(b []byte, afi uint16, safi byte, path bool) ([]NLRI, error) {
 			i += 4
 		}
 
-		length := int(b[i])
-		lengthb := length
-		add := 0
-		if length%8 != 0 {
-			add = 1
-		}
-		length = length/8 + add
+		bits := int(b[i])
 		i++
-		if i+length > len(b) {
-			return prefixlist, errors.New(fmt.Sprintf("ParseNLRI: wrong NLRI size: %v > %v", i+length, len(b)))
+		byteLen := bits / 8
+		if bits%8 != 0 {
+			byteLen++
 		}
-		prefix := b[i : i+length]
+		if i+byteLen > len(b) {
+			return prefixlist, errors.New(fmt.Sprintf("ParseNLRI: wrong NLRI size: %v > %v", i+byteLen, len(b)))
+		}
+		prefix := b[i : i+byteLen]
 
-		mask := net.CIDRMask(lengthb, psize)
 		ip := make([]byte, asize)
-
-		if len(prefix) > len(ip) {
-			return prefixlist, errors.New(fmt.Sprintf("ParseNLRI: wrong IP size: %v > %v", len(prefix), len(ip)))
-		}
-
-		for j := range prefix {
-			ip[j] = prefix[j]
-		}
+		copy(ip, prefix)
 		ipnet := net.IPNet{
 			IP:   ip,
-			Mask: mask,
+			Mask: masks[bits],
 		}
 		prefixlist = append(prefixlist, NLRI_IPPrefix{
 			Prefix: ipnet,
 			PathId: pathid,
 		})
 
-		i += length
+		i += byteLen
 	}
 	return prefixlist, nil
 }
@@ -618,7 +607,6 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 		}
 
 		var intf SerializableInterface
-		buf := bytes.NewBuffer(data)
 
 		switch attrcode {
 		case ATTRIBUTE_ORIGIN:
@@ -633,18 +621,20 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			}
 			intf = a
 		case ATTRIBUTE_MED:
-			a := BGPAttribute_MED{}
-			binary.Read(buf, binary.BigEndian, &(a.Med))
+			if len(data) < 4 {
+				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: MED data too short"))
+			}
+			a := BGPAttribute_MED{
+				Med: uint32(data[0])<<24 | uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3]),
+			}
 			intf = a
 		case ATTRIBUTE_AGGREGATOR:
 			a := BGPAttribute_AGGREGATOR{}
 			if len(data) == 8 && !enc2bytes {
-				binary.Read(buf, binary.BigEndian, &(a.ASN))
+				a.ASN = uint32(data[0])<<24 | uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3])
 				a.Identifier = data[4:8]
 			} else if len(data) == 6 && enc2bytes {
-				var tmpas uint16
-				binary.Read(buf, binary.BigEndian, &tmpas)
-				a.ASN = uint32(tmpas)
+				a.ASN = uint32(uint16(data[0])<<8 | uint16(data[1]))
 				a.Identifier = data[2:6]
 			}
 			a.Enc2Bytes = enc2bytes
@@ -653,53 +643,42 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 			a := BGPAttribute_ATOMIC_AGGREGATE{}
 			intf = a
 		case ATTRIBUTE_LOCPREF:
-			a := BGPAttribute_LOCPREF{}
-			binary.Read(buf, binary.BigEndian, &(a.LocPref))
+			if len(data) < 4 {
+				return attributes, errors.New(fmt.Sprintf("ParsePathAttribute: LOCPREF data too short"))
+			}
+			a := BGPAttribute_LOCPREF{
+				LocPref: uint32(data[0])<<24 | uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3]),
+			}
 			intf = a
 		case ATTRIBUTE_ASPATH:
 			a := BGPAttribute_ASPATH{Segments: make([]ASPath_Segment, 0)}
-
-			var aslen byte
-			var err_rd error
-			var stype byte
-			stype, err_rd = buf.ReadByte()
-			for err_rd == nil {
-				aslen, err_rd = buf.ReadByte()
-				if err_rd != nil {
+			pos := 0
+			for pos < len(data) {
+				if pos >= len(data) {
 					break
 				}
-
-				s := ASPath_Segment{SType: stype, ASPath: make([]uint32, 0)}
-
-				if err_rd != nil {
+				stype := data[pos]
+				pos++
+				if pos >= len(data) {
 					break
 				}
+				aslen := data[pos]
+				pos++
+
+				s := ASPath_Segment{SType: stype, ASPath: make([]uint32, aslen)}
+
 				if !enc2bytes {
-					var tmpas uint32
-					if err_rd != nil {
-						break
+					for j := 0; j < int(aslen) && pos+4 <= len(data); j++ {
+						s.ASPath[j] = uint32(data[pos])<<24 | uint32(data[pos+1])<<16 | uint32(data[pos+2])<<8 | uint32(data[pos+3])
+						pos += 4
 					}
-					for j := 0; j < int(aslen) && j <= 255; j++ {
-						binary.Read(buf, binary.BigEndian, &tmpas)
-						s.ASPath = append(s.ASPath, tmpas)
-					}
-
 				} else {
-					var tmpas uint16
-					if err_rd != nil {
-						break
+					for j := 0; j < int(aslen) && pos+2 <= len(data); j++ {
+						s.ASPath[j] = uint32(uint16(data[pos])<<8 | uint16(data[pos+1]))
+						pos += 2
 					}
-					for j := 0; j < int(aslen) && j <= 255; j++ {
-						binary.Read(buf, binary.BigEndian, &tmpas)
-						s.ASPath = append(s.ASPath, uint32(tmpas))
-					}
-
 				}
 				a.Segments = append(a.Segments, s)
-				stype, err_rd = buf.ReadByte()
-				if err_rd != nil {
-					break
-				}
 			}
 			a.Enc2Bytes = enc2bytes
 			intf = a
@@ -711,34 +690,48 @@ func ParsePathAttribute(b []byte, addpathlist []AfiSafi, enc2bytes bool) ([]BGPA
 		case ATTRIBUTE_COMMUNITIES:
 			a := BGPAttribute_COMMUNITIES{Communities: make([]uint32, length/4)}
 			for j := 0; j < length/4; j++ {
-				binary.Read(buf, binary.BigEndian, &(a.Communities[j]))
+				off := j * 4
+				a.Communities[j] = uint32(data[off])<<24 | uint32(data[off+1])<<16 | uint32(data[off+2])<<8 | uint32(data[off+3])
 			}
 			intf = a
 		case ATTRIBUTE_LARGECOMMUNITIES:
 			a := BGPAttribute_LARGECOMMUNITIES{Communities: make([]LargeCommunity, length/12)}
 			for j := 0; j < length/12; j++ {
-				binary.Read(buf, binary.BigEndian, &(a.Communities[j]))
+				off := j * 12
+				a.Communities[j] = LargeCommunity{
+					GlobalAdmin: uint32(data[off])<<24 | uint32(data[off+1])<<16 | uint32(data[off+2])<<8 | uint32(data[off+3]),
+					LocalData1:  uint32(data[off+4])<<24 | uint32(data[off+5])<<16 | uint32(data[off+6])<<8 | uint32(data[off+7]),
+					LocalData2:  uint32(data[off+8])<<24 | uint32(data[off+9])<<16 | uint32(data[off+10])<<8 | uint32(data[off+11]),
+				}
 			}
 			intf = a
 		case ATTRIBUTE_REACH:
 			a := BGPAttribute_MP_REACH{}
-			binary.Read(buf, binary.BigEndian, &(a.Afi))
-			binary.Read(buf, binary.BigEndian, &(a.Safi))
-			nhlen, _ := buf.ReadByte()
+			pos := 0
+			a.Afi = uint16(data[pos])<<8 | uint16(data[pos+1])
+			pos += 2
+			a.Safi = data[pos]
+			pos++
+			nhlen := data[pos]
+			pos++
 			nh := make([]byte, nhlen)
-			buf.Read(nh)
+			copy(nh, data[pos:pos+int(nhlen)])
 			a.NextHop = nh
-			buf.ReadByte()
+			pos += int(nhlen)
+			pos++
 			parseinfo := InAfiSafi(a.Afi, a.Safi, addpathlist)
-			a.NLRI, _ = ParseNLRI(buf.Bytes(), a.Afi, a.Safi, parseinfo)
+			a.NLRI, _ = ParseNLRI(data[pos:], a.Afi, a.Safi, parseinfo)
 			a.EnableAddPath = parseinfo
 			intf = a
 		case ATTRIBUTE_UNREACH:
 			a := BGPAttribute_MP_UNREACH{}
-			binary.Read(buf, binary.BigEndian, &(a.Afi))
-			binary.Read(buf, binary.BigEndian, &(a.Safi))
+			pos := 0
+			a.Afi = uint16(data[pos])<<8 | uint16(data[pos+1])
+			pos += 2
+			a.Safi = data[pos]
+			pos++
 			parseinfo := InAfiSafi(a.Afi, a.Safi, addpathlist)
-			a.NLRI, _ = ParseNLRI(buf.Bytes(), a.Afi, a.Safi, parseinfo)
+			a.NLRI, _ = ParseNLRI(data[pos:], a.Afi, a.Safi, parseinfo)
 			intf = a
 		default:
 			intf = BGPAttribute{
