@@ -137,14 +137,14 @@ func td1ToJSON(m MrtTableDumpV1_Rib) goldenRecord {
 	}
 	attrs := attributesToSlice(m.Attributes)
 	d := map[string]interface{}{
-		"view_number":      m.ViewNumber,
-		"sequence_number":  m.SequenceNumber,
-		"prefix":           m.Prefix.String(),
-		"status":           m.Status,
-		"originated_time":  ots,
-		"peer_ip":          ipToStr(m.PeerIP),
-		"peer_as":          m.PeerAS,
-		"attributes":       attrs,
+		"view_number":     m.ViewNumber,
+		"sequence_number": m.SequenceNumber,
+		"prefix":          m.Prefix.String(),
+		"status":          m.Status,
+		"originated_time": ots,
+		"peer_ip":         ipToStr(m.PeerIP),
+		"peer_as":         m.PeerAS,
+		"attributes":      attrs,
 	}
 	raw, _ := json.Marshal(d)
 	return goldenRecord{Type: "TABLE_DUMPV1_RIB", Timestamp: ts, Data: raw}
@@ -249,10 +249,10 @@ func updateToMap(m *messages.BGPMessageUpdate) map[string]interface{} {
 		nlris[i] = nlriToMap(n)
 	}
 	return map[string]interface{}{
-		"type":              "UPDATE",
-		"withdrawn_routes":  withdrawn,
-		"path_attributes":   attrs,
-		"nlri":              nlris,
+		"type":             "UPDATE",
+		"withdrawn_routes": withdrawn,
+		"path_attributes":  attrs,
+		"nlri":             nlris,
 	}
 }
 
@@ -359,11 +359,11 @@ func attributeToMap(a messages.BGPAttributeIf) map[string]interface{} {
 			nlris[j] = nlriToMap(n)
 		}
 		return map[string]interface{}{
-			"code":  messages.ATTRIBUTE_UNREACH,
-			"name":  "MP_UNREACH_NLRI",
-			"afi":   v.Afi,
-			"safi":  v.Safi,
-			"nlri":  nlris,
+			"code": messages.ATTRIBUTE_UNREACH,
+			"name": "MP_UNREACH_NLRI",
+			"afi":  v.Afi,
+			"safi": v.Safi,
+			"nlri": nlris,
 		}
 	case messages.BGPAttribute_ATOMIC_AGGREGATE:
 		return map[string]interface{}{
