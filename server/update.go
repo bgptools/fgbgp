@@ -3,10 +3,10 @@ package fgbgp
 import (
 	"errors"
 	"fmt"
+	"log"
 	"sync/atomic"
 
 	"github.com/bgptools/fgbgp/messages"
-	log "github.com/sirupsen/logrus"
 )
 
 type BGPUpdateHandler interface {
@@ -77,7 +77,7 @@ func (uh *DefaultBGPUpdateHandler) Process(id int, msg interface{}) error {
 }
 
 func (uh *DefaultBGPUpdateHandler) Error(id int, msg interface{}, err error) {
-	log.Errorf("DefaultBGPUpdateHandler: %v", err)
+	log.Printf("DefaultBGPUpdateHandler: %v", err)
 }
 
 func (uh *DefaultBGPUpdateHandler) SetUpdateEventHandler(eh BGPUpdateEventHandler) {

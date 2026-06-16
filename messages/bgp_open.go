@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type BGPCapability_MP struct {
@@ -288,7 +286,7 @@ func ParseOpen(b []byte) (*BGPMessageOpen, error) {
 	holdtime := uint16(b[3])<<8 | uint16(b[4])
 
 	if holdtime > 0 && holdtime < 3 {
-		log.Warnf("ParseOpen: BGP open hold time must be zero or at least 3. Got %v.", holdtime)
+		// log.Warnf("ParseOpen: BGP open hold time must be zero or at least 3. Got %v.", holdtime)
 	}
 
 	identifier := b[5:9]

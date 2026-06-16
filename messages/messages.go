@@ -7,8 +7,6 @@ import (
 	"io"
 	"net"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -613,7 +611,7 @@ func ParseNotification(b []byte) (*BGPMessageNotification, error) {
 		errData,
 	}
 
-	log.Errorf("ParseNotification: %v", r.String())
+	// log.Errorf("ParseNotification: %v", r.String())
 	return r, nil
 }
 

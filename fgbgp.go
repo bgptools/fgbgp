@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"os"
 
 	server "github.com/bgptools/fgbgp/server"
-	log "github.com/sirupsen/logrus"
 )
 
 const AppVersion = "fgbgp 2017.8.0"
@@ -26,14 +26,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	lvl, _ := log.ParseLevel(*LogLevel)
-	log.SetLevel(lvl)
-
 	m := server.NewManager(65001, net.ParseIP("1.2.3.4"), false, false)
 	m.UseDefaultUpdateHandler(10)
 	err := m.NewServer(*BgpAddr)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("m.NewServer=%v", err)
 	}
 	fmt.Printf("hello %v\n", m)
 	m.Start()

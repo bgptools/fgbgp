@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/bgptools/fgbgp/messages"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -156,7 +156,7 @@ func (n *Neighbor) RefreshAll() error {
 
 func (n *Neighbor) Refresh(afisafi messages.AfiSafi) error {
 	if n.PeerRouteRefresh {
-		log.Infof("%v: Refreshing routes for %v", n.String(), afisafi.String())
+		log.Printf("%v: Refreshing routes for %v", n.String(), afisafi.String())
 		rr := messages.BGPMessageRouteRefresh{AfiSafi: afisafi}
 		n.OutQueue <- rr
 		return nil
@@ -179,7 +179,7 @@ func (n *Neighbor) GetLocalAddress() (net.IP, int) {
 }
 
 func (n *Neighbor) Connect() error {
-	log.Infof("%v: Connecting", n.String())
+	log.Printf("%v: Connecting", n.String())
 	tcpaddr := net.TCPAddr{
 		IP:   n.Addr,
 		Port: n.Port,
@@ -194,7 +194,7 @@ func (n *Neighbor) Connect() error {
 }
 
 func (n *Neighbor) Disconnect() {
-	log.Infof("%v: Disconnected", n.String())
+	log.Printf("%v: Disconnected", n.String())
 	n.Connected = false
 	n.State.OpenReceived = false
 	n.tcpconn.Close()
@@ -205,7 +205,7 @@ func (n *Neighbor) Disconnect() {
 	}
 
 	if n.RemoveOnDisconnect && n.s != nil && n.s.Manager != nil {
-		log.Infof("%v: Removing from manager", n.String())
+		log.Printf("%v: Removing from manager", n.String())
 		select {
 		case n.qLife <- true:
 		default:
@@ -290,7 +290,7 @@ func (n *Neighbor) UpdateFromOpen(pkt *messages.BGPMessageOpen) {
 				case messages.BGPCapability_ADDPATH:
 					n.PeerAddPathList = ct.AddPathList
 					n.SendAddPath, n.DecodeAddPath = CompareAddPath(n.AddPathList, n.PeerAddPathList)
-					log.Debugf("%v: Add-path: Send on %v Afi-Safi / Receive on %v Afi-Safi", n.String(), len(n.SendAddPath), len(n.DecodeAddPath))
+					// log.Debugf("%v: Add-path: Send on %v Afi-Safi / Receive on %v Afi-Safi", n.String(), len(n.SendAddPath), len(n.DecodeAddPath))
 				case messages.BGPCapability_ASN:
 					n.Peer2Bytes = false
 					n.PeerASN = ct.ASN
@@ -305,7 +305,7 @@ func (n *Neighbor) UpdateFromOpen(pkt *messages.BGPMessageOpen) {
 func (n *Neighbor) EvolveState(pkt interface{}) {
 	switch pktt := pkt.(type) {
 	case *messages.BGPMessageOpen:
-		log.Info(pktt.String())
+		// log.Info(pktt.String())
 
 		if pktt.HoldTime != 0 {
 			n.PeerHoldTime = time.Duration(time.Duration(int(pktt.HoldTime)) * time.Second)
@@ -322,18 +322,18 @@ func (n *Neighbor) EvolveState(pkt interface{}) {
 		if n.HandlerEvent != nil {
 			ret := n.HandlerEvent.NewNeighbor(pktt, n)
 			if !ret {
-				log.Infof("%v: handler forced disconnect.", n.String())
+				log.Printf("%v: handler forced disconnect.", n.String())
 				n.Disconnect()
 			}
 		}
 
 	case *messages.BGPMessageKeepAlive:
 		if n.State.CurState == STATE_OPENCONFIRM {
-			log.Debugf("%v: OpenConfirm -> Established", n.String())
+			// log.Debugf("%v: OpenConfirm -> Established", n.String())
 			n.UpdateState(STATE_ESTABLISHED)
 		}
 	case *messages.BGPMessageNotification:
-		log.Errorf("%v: Received notification: %v", n.String(), pktt)
+
 		if n.HandlerEvent != nil {
 			n.HandlerEvent.Notification(pktt, n)
 		}
@@ -351,10 +351,10 @@ func (n *Neighbor) EvolveState(pkt interface{}) {
 			// Change nil for when binding to specific IP or IP+port
 			err := n.Connect()
 			if err == nil {
-				log.Debugf("%v: Idle -> Active", n.String())
+				// log.Debugf("%v: Idle -> Active", n.String())
 				n.UpdateState(STATE_ACTIVE)
 			} else {
-				log.Errorf("%v: Error connecting: %v", n.String(), err)
+				// log.Printff"Error: %v",("%v: Error connecting: %v", n.String(), err)
 			}
 		}
 	case STATE_ACTIVE:
@@ -365,7 +365,7 @@ func (n *Neighbor) EvolveState(pkt interface{}) {
 			}
 
 			open := messages.CraftOpenMessage(n.ASN, ht, n.Identifier.To4(), n.MultiprotocolList, n.AddPathList, n.RouteRefresh)
-			log.Debugf("%v: Active -> OpenSent", n.String())
+			// log.Debugf("%v: Active -> OpenSent", n.String())
 			n.OutQueue <- open
 
 			ka := messages.CraftKeepAliveMessage()
@@ -376,7 +376,7 @@ func (n *Neighbor) EvolveState(pkt interface{}) {
 
 	case STATE_OPENSENT:
 		if n.State.OpenReceived {
-			log.Debugf("%v: OpenSent -> OpenConfirm", n.String())
+			// log.Debugf("%v: OpenSent -> OpenConfirm", n.String())
 			n.UpdateState(STATE_OPENCONFIRM)
 		}
 
@@ -385,7 +385,7 @@ func (n *Neighbor) EvolveState(pkt interface{}) {
 		if n.PeerEnableKeepAlive && n.LastKeepAliveSent.Add((n.PeerHoldTime/time.Second)/3).Before(time.Now().UTC()) {
 			ka := messages.BGPMessageKeepAlive{}
 			n.OutQueue <- ka
-			log.Debugf("Established / KeepAlive")
+			// log.Debugf("Established / KeepAlive")
 			n.LastKeepAliveSent = time.Now().UTC()
 		}
 	case STATE_OPENCONFIRM:
@@ -393,14 +393,14 @@ func (n *Neighbor) EvolveState(pkt interface{}) {
 		if n.PeerEnableKeepAlive && n.LastKeepAliveSent.Add((n.PeerHoldTime/time.Second)/3).Before(time.Now().UTC()) {
 			ka := messages.BGPMessageKeepAlive{}
 			n.OutQueue <- ka
-			//log.Debugf("OpenConfirm / KeepAlive")
+			// log.Debugf("OpenConfirm / KeepAlive")
 			n.LastKeepAliveSent = time.Now().UTC()
 		}
 	}
 
 	if n.State.CurState != STATE_IDLE && n.State.CurState != STATE_ACTIVE && n.LocalEnableKeepAlive && n.LocalLastKeepAliveRecv.Add(n.LocalHoldTime).Before(time.Now().UTC()) {
 		// Craft error hold time message
-		log.Errorf("%v: no keep-alive received. Disconnecting.", n.String())
+		// log.Printff"Error: %v",("%v: no keep-alive received. Disconnecting.", n.String())
 		n.Disconnect()
 	}
 
@@ -414,7 +414,7 @@ func (n *Neighbor) NeighborLifeRoutine() {
 		case <-time.After(time.Duration(1 * time.Second)):
 			n.EvolveState(nil)
 		case <-n.qLife:
-			log.Infof("%v: NeighborLifeRoutine stopped", n.String())
+			log.Printf("%v: NeighborLifeRoutine stopped", n.String())
 			return
 		}
 	}
@@ -429,17 +429,17 @@ func (n *Neighbor) SenderRoutine() {
 			_, err := n.tcpconn.Write(buf.Bytes())
 
 			if err != nil {
-				log.Errorf("%v: error sender %v", n.String(), err)
+				// log.Printff"Error: %v",("%v: error sender %v", n.String(), err)
 				n.Disconnect()
 			}
 		case <-n.qSender:
-			log.Infof("%v: SenderRoutine stopped", n.String())
+			log.Printf("%v: SenderRoutine stopped", n.String())
 			return
 		}
 	}
 }
 
-func ReadFromSocket(tcpconn *net.TCPConn, msg []byte) error {
+func readFromSocket(tcpconn *net.TCPConn, msg []byte) error {
 	var err error
 	var i int
 	var read int
@@ -462,23 +462,23 @@ func (n *Neighbor) NeighborReceiveRoutine() {
 	for {
 		if n.Connected {
 			msg := make([]byte, 19)
-			err := ReadFromSocket(n.tcpconn, msg)
+			err := readFromSocket(n.tcpconn, msg)
 
 			var toread uint16
 			var bgptype byte
 			if err == nil {
 				bgptype, toread, err = messages.ParsePacketHeader(msg)
-				//log.Debugf("Received from %v/%v: %v bytes", n.tcpconn.RemoteAddr(), n.tcpconn.LocalAddr(), toread)
+				// log.Debugf("Received from %v/%v: %v bytes", n.tcpconn.RemoteAddr(), n.tcpconn.LocalAddr(), toread)
 
 				if toread > 0 {
 					msg = make([]byte, toread)
-					err = ReadFromSocket(n.tcpconn, msg)
+					err = readFromSocket(n.tcpconn, msg)
 				}
 			}
 
 			if err != nil {
 				// Socket might not be clean enough so even if the connection is redone, this error can be raised
-				log.Errorf("NeighborReceiveRoutine: %v", err)
+				// log.Printff"Error: %v",("NeighborReceiveRoutine: %v", err)
 				n.Disconnect()
 				continue
 			}
@@ -491,7 +491,7 @@ func (n *Neighbor) NeighborReceiveRoutine() {
 				var p interface{}
 				p, err = messages.ParsePacket(bgptype, msg)
 				if err != nil {
-					log.Error(err)
+					log.Printf("Error: %v", err)
 					n.Disconnect()
 					continue
 				}
@@ -520,7 +520,7 @@ func (n *Neighbor) NeighborReceiveRoutine() {
 			/*switch pkt := p.(type) {
 			  case *BGPMessageUpdate:
 			      // save
-			      log.Debugf("UPDATE %v", pkt)
+			    //   log.Debugf("UPDATE %v", pkt)
 			  default:
 			      select {
 			      case n.update<-p:
@@ -534,10 +534,10 @@ func (n *Neighbor) NeighborReceiveRoutine() {
 			select {
 			case <-time.After(time.Duration(1 * time.Millisecond)):
 				if !n.Connected {
-					//log.Errorf("%v: Neighbor not connected", n.String())
+					// log.Printff"Error: %v",("%v: Neighbor not connected", n.String())
 					if !n.Reconnect {
 						//n.Remove()
-						log.Infof("%v: NeighborReceiveRoutine stopped", n.String())
+						log.Printf("%v: NeighborReceiveRoutine stopped", n.String())
 						return
 					}
 				}
@@ -553,7 +553,7 @@ func (n *Neighbor) Start() {
 }
 
 func (s *Server) ProcessIncomingRequest(tcpconn *net.TCPConn) {
-	log.Debugf("Creating new neighbor from incoming connection: %v", tcpconn.RemoteAddr().String())
+	// log.Debugf("Creating new neighbor from incoming connection: %v", tcpconn.RemoteAddr().String())
 	n := NewNeighborFromConn(tcpconn, s.Manager.Identifier, s.Manager.ASN, s.Manager.AddPath, s.Manager.HoldTime, s.Manager.RouteRefresh)
 	n.HandlerEvent = s.Manager.HandlerEvent
 	n.HandlerUpdate = s.Manager.HandlerUpdate
@@ -574,7 +574,7 @@ func (s *Server) ServerRoutine() {
 	for {
 		tcpconn, err := s.inconn.AcceptTCP()
 		if err != nil {
-			log.Error(err)
+			log.Printf("Error: %v", err)
 		} else {
 			go s.ProcessIncomingRequest(tcpconn)
 		}
@@ -656,7 +656,7 @@ func NewManager(asn uint32, identifier net.IP, addpath bool, routerefresh bool) 
 }
 
 func (m *Manager) RemoveNeighbor(n *Neighbor) {
-	log.Debugf("Removing neighbor %v", n.String())
+	// log.Debugf("Removing neighbor %v", n.String())
 	newlist := make([]*Neighbor, 0)
 	m.neighborlock.Lock()
 	for i := range m.Neighbors {
@@ -664,7 +664,7 @@ func (m *Manager) RemoveNeighbor(n *Neighbor) {
 			newlist = append(newlist, m.Neighbors[i])
 		} else {
 			m.MemPool.Put(n)
-			log.Debugf("Putting %v into sync pool", n)
+			// log.Debugf("Putting %v into sync pool", n)
 		}
 	}
 
