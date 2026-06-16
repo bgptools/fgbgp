@@ -438,10 +438,10 @@ func stateToStr(state uint16) string {
 
 func mrtFiles() []string {
 	return []string{
-		"32816bac-6a2a-41d6-a10e-2b9040fea5ea,oqrvcdrqj7,2026-06-16T11:23:59Z,sp.mrt.gz",
-		"441e33f3-1dc9-453b-81eb-40b7a48c8b9d,ldy63elm7y,2026-06-16T11:23:08Z,sp.mrt.gz",
-		"4842d06a-0a59-4df0-86bb-661bd4e6e214,s7sgfocykq,2026-06-16T11:17:38Z,ap.mrt.gz",
-		"c05ff976-1f52-4b73-8825-8d462c12ce12,zgz6pbknvl,2026-06-16T11:22:58Z,sp.mrt.gz",
+		"32816bac-6a2a-41d6-a10e-2b9040fea5ea,oqrvcdrqj7,2026-06-16T112359Z,sp.mrt.gz",
+		"441e33f3-1dc9-453b-81eb-40b7a48c8b9d,ldy63elm7y,2026-06-16T112308Z,sp.mrt.gz",
+		"4842d06a-0a59-4df0-86bb-661bd4e6e214,s7sgfocykq,2026-06-16T111738Z,ap.mrt.gz",
+		"c05ff976-1f52-4b73-8825-8d462c12ce12,zgz6pbknvl,2026-06-16T112258Z,sp.mrt.gz",
 	}
 }
 
@@ -538,7 +538,7 @@ func TestGoldenMRTDecode(t *testing.T) {
 
 func sanitizeName(name string) string {
 	name = strings.ReplaceAll(name, ",", "_")
-	name = strings.ReplaceAll(name, ":", "_")
+	name = strings.ReplaceAll(name, ":", "")
 	name = strings.TrimSuffix(name, ".gz")
 	return name
 }
