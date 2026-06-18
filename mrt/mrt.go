@@ -468,6 +468,9 @@ func (mrt *MrtBGP4MP_Msg_AS4) Write(buf io.Writer) {
 }
 
 func DecodeBGP4MP(buf io.Reader, timestamp time.Time, subtype uint16, length uint32) (Mrt, error) {
+	if length > MaxMrtLength {
+		return nil, fmt.Errorf("BGP4MP record length %d exceeds maximum %d", length, MaxMrtLength)
+	}
 	content := make([]byte, length)
 	if _, err := io.ReadFull(buf, content); err != nil {
 		return nil, err
@@ -760,6 +763,9 @@ func decodeBGP4TD1(r *byteReader, timestamp time.Time, subtype uint16, length ui
 }
 
 func DecodeBGP4TD2(buf io.Reader, timestamp time.Time, subtype uint16, length uint32) (Mrt, error) {
+	if length > MaxMrtLength {
+		return nil, fmt.Errorf("BGP4TD2 record length %d exceeds maximum %d", length, MaxMrtLength)
+	}
 	content := make([]byte, length)
 	if _, err := io.ReadFull(buf, content); err != nil {
 		return nil, err
